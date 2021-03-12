@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 
-# Notes for next time: figure out how to make the merge work
 brac_frame = pd.read_stata("C:/Users/Re(d)ginald/Documents/RA Stuff/harris county/input_data/texas_breath_tests.dta")
 brac_frame.drop(brac_frame[brac_frame["cnty"] != "101"].index, inplace=True)  # Filtering out everything that isn't
 # Harris County
