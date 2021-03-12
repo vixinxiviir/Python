@@ -7,10 +7,6 @@ import time
 import glob
 import os
 
-# DISCLAIMER: I don't currently know how to make new folders with Python, so I made all the folders for the files by
-# hand. If you want to run this script, you'll need a folder
-# inside your working director for each precinct (named after the corresponding p-value) with a folder for each year
-# inside it.
 
 # Note: this P value is the webpage source code value corresponding to which precinct we're looking at. It ranges from
 # 305-380
