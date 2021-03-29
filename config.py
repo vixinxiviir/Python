@@ -161,6 +161,7 @@ screens = [
                 widget.QuickExit(background="d75f5f"),
             ],
             24,
+	background="ffafaf",
         ),
     ),
 ]
