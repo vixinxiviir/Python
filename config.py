@@ -44,7 +44,7 @@ import subprocess
 @hook.subscribe.startup
 def autostart():
 	home = os.path.expanduser("~")
-	subprocessor.call([home + "/.config/qtile/autostart.sh"])
+	subprocess.call([home + "/.config/qtile/autostart.sh"])
 
 
 mod = "mod4"
