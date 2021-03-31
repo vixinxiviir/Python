@@ -158,7 +158,7 @@ screens = [
 		widget.CPU(background="d787d7"),
 		widget.Memory(background="d75f5f"),
 		widget.CapsNumLockIndicator(background="d787d7"),
-		    widget.Clock(background="d75f5f"),
+		widget.Clock(background="d75f5f"),
                 widget.QuickExit(background="d787d7"),
             ],
             20,
