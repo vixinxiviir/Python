@@ -9,6 +9,7 @@ import json
 from datetime import datetime
 from datetime import timedelta
 
+#Checking message for git pull
 
 def chess_extract():
     names = ['hikaru', 'magnuscarlsen', 'fabianocaruana', 'chefshouse', 'firouzja2003', 'iachesisq', 'anishgiri', 'gukeshdommaraju', 'thevish', 'gmwso']
