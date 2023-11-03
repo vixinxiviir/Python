@@ -9,7 +9,6 @@ import json
 from datetime import datetime
 from datetime import timedelta
 
-#Checking message for git pull
 
 def chess_extract():
     names = ['hikaru', 'magnuscarlsen', 'fabianocaruana', 'chefshouse', 'firouzja2003', 'iachesisq', 'anishgiri', 'gukeshdommaraju', 'thevish', 'gmwso']
@@ -53,7 +52,8 @@ def chess_extract():
 def chess_transform():
     names = ['hikaru', 'magnuscarlsen', 'fabianocaruana', 'chefshouse', 'firouzja2003', 'iachesisq', 'anishgiri', 'gukeshdommaraju', 'thevish', 'gmwso']
     tables = ['chess_daily', 'chess_rapid', 'chess_blitz', 'chess_bullet']
-    names_frame = pd.DataFrame(names, index=(range(0,len(names))))
+    names_frame = pd.DataFrame(names, columns=['player_name'], index=(range(0,len(names))))
+    names_frame['last_updated'] = datetime.now()
     connection = sqlite3.connect('databases/chess_data.db')
     cursor = connection.cursor()
     for table in tables:
@@ -66,7 +66,7 @@ def chess_transform():
                         date DATETIME
                        );''' 
                     )
-    cursor.execute('CREATE TABLE IF NOT EXISTS players(player_name TEXT(512))')
+    cursor.execute('CREATE TABLE IF NOT EXISTS players(player_name TEXT(512), last_updated DATETIME)')
     names_frame.to_sql(con=connection, name='players', if_exists='replace', index=False)
     for name in names:
         for table in tables:
@@ -102,7 +102,46 @@ def chess_transform():
     cursor.execute("UPDATE chess_stage SET transformed = 'True' WHERE transformed = 'False';")
     connection.commit()
 
-
+def chess_load():
+    connection = sqlite3.connect('databases/chess_data.db')
+    cursor = connection.cursor()
+    table_creation = '''CREATE TABLE IF NOT EXISTS full_chess_data(
+    player_name TEXT(512),
+    last_update DATETIME,
+    chess_daily_win INTEGER,
+    chess_daily_loss INTEGER,
+    chess_daily_draw INTEGER,
+    chess_daily_winrate NUMERIC,
+    chess_blitz_win INTEGER,
+    chess_blitz_loss INTEGER,
+    chess_blitz_draw INTEGER,
+    chess_blitz_winrate NUMERIC,
+    chess_bullet_win INTEGER,
+    chess_bullet_loss INTEGER,
+    chess_bullet_draw INTEGER,
+    chess_bullet_winrate NUMERIC,
+    chess_rapid_win INTEGER,
+    chess_rapid_loss INTEGER,
+    chess_rapid_draw INTEGER,
+    chess_rapid_winrate NUMERIC
+    )'''
+    cursor.execute(table_creation)
+    consolidation_query = '''SELECT DISTINCT players.player_name, players.last_updated,
+                IFNULL(blitz.chess_blitz_win, 0) AS chess_blitz_win, IFNULL(blitz.chess_blitz_loss, 0) AS chess_blitz_loss, IFNULL(blitz.chess_blitz_draw, 0) as chess_blitz_draw, IFNULL(blitz.chess_blitz_winrate, 0) AS chess_blitz_winrate,
+                IFNULL(daily.chess_daily_win, 0) AS chess_daily_win,  IFNULL(daily.chess_daily_loss, 0) AS chess_daily_loss,  IFNULL(daily.chess_daily_draw, 0) AS chess_daily_draw,  IFNULL(daily.chess_daily_winrate, 0) AS chess_daily_winrate,
+                IFNULL(bullet.chess_bullet_win, 0) AS chess_bullet_win, IFNULL(bullet.chess_bullet_loss, 0) AS chess_bullet_loss, IFNULL(bullet.chess_bullet_draw, 0) AS chess_bullet_draw, IFNULL(bullet.chess_bullet_winrate, 0) AS chess_bullet_winrate,
+                IFNULL(rapid.chess_rapid_win, 0) AS chess_rapid_win, IFNULL(rapid.chess_rapid_loss, 0) AS chess_rapid_loss, IFNULL(rapid.chess_rapid_draw, 0) AS chess_rapid_draw, IFNULL(rapid.chess_rapid_winrate, 0) AS chess_rapid_winrate
+            FROM players
+            LEFT JOIN chess_blitz AS blitz ON players.player_name = blitz.player_name
+            LEFT JOIN chess_daily AS daily ON players.player_name = daily.player_name
+            LEFT JOIN chess_bullet AS bullet ON players.player_name = bullet.player_name
+            LEFT JOIN chess_rapid AS rapid ON players.player_name = rapid.player_name
+            ORDER BY players.player_name; '''
+    
+    consolidated_data = pd.read_sql(con=connection, sql=consolidation_query)
+    consolidated_data['last_updated'] = datetime.now()
+    consolidated_data.to_sql(con=connection, name='full_chess_data', index=False, if_exists='replace')
+    print("Data loaded!")
 
 default_args = {
     'owner': 'airflow',
@@ -127,5 +166,10 @@ with DAG(
         python_callable = chess_transform,
         dag=chess_dag
     )
-    
-task1 >> task2
+    task3 = PythonOperator(
+        task_id = 'chess_load',
+        python_callable = chess_load,
+        dag=chess_dag
+    )
+
+task1 >> task2 >> task3
