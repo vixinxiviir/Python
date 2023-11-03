@@ -11,13 +11,22 @@ from datetime import timedelta
 
 
 def chess_extract():
+    # Our list of GMs
     names = ['hikaru', 'magnuscarlsen', 'fabianocaruana', 'chefshouse', 'firouzja2003', 'iachesisq', 'anishgiri', 'gukeshdommaraju', 'thevish', 'gmwso']
+
+    # For some reason Chess.com API returns 403 if you don't have these headers specifically
     headers = {'User-Agent':'Chess.py (Python 3.10)(username: vixinxiviir; contact:cody.r.byers@gmail.com)'}
+
+    # Checking to see if there's a database folder in cwd
     db_exist = os.path.exists('databases')
     if not db_exist:
         os.makedirs('databases')
+    
+    # Establishing SQL connection
     connection = sqlite3.connect('databases/chess_data.db')
     cursor = connection.cursor()
+
+    # Creating our staging table
     cursor.execute('''
                     CREATE TABLE IF NOT EXISTS chess_stage(
                     game_category TEXT(25) NOT NULL,
@@ -35,27 +44,43 @@ def chess_extract():
                     transformed TEXT(512)
                    );
                     ''')
+    
+    # Iterating through our list of GMs
     for name in names:
+        
+        # Chess.com REST API call, returns a json
         api_url = 'https://api.chess.com/pub/player/' + name + '/stats'
         response = requests.get(api_url, headers=headers)
         json_data = json.dumps(response.json())
+        
+        # Getting it into a data frame
         nested_data = pd.read_json(json_data)
+
+        # Adding some useful columns, just a teensy bit of cleaning to make it easier to insert into the DB
         nested_data['player_name'] = name
         nested_data = nested_data.reset_index().rename(columns={'index':'game_category'})
         for column in nested_data.columns.values:
             nested_data[column] = nested_data[column].astype(str)
         nested_data['date'] = datetime.now()
+
+        # Keeps the transformation piece from duplicating the data
         nested_data['transformed'] = 'False'
+
+        # We append here so we can keep a record of all the raw data if we want to see a particular extract
         nested_data.to_sql(name='chess_stage', con=connection, if_exists='append', index=False)
     print("Data extracted!")
 
 def chess_transform():
     names = ['hikaru', 'magnuscarlsen', 'fabianocaruana', 'chefshouse', 'firouzja2003', 'iachesisq', 'anishgiri', 'gukeshdommaraju', 'thevish', 'gmwso']
     tables = ['chess_daily', 'chess_rapid', 'chess_blitz', 'chess_bullet']
+
+    # This creates a data frame for the player dimension table--we'll need it to join on later
     names_frame = pd.DataFrame(names, columns=['player_name'], index=(range(0,len(names))))
     names_frame['last_updated'] = datetime.now()
     connection = sqlite3.connect('databases/chess_data.db')
     cursor = connection.cursor()
+
+    # Making a table for each of our category data
     for table in tables:
         cursor.execute('CREATE TABLE IF NOT EXISTS ' + table + '''(
                         ''' + table + '''_win INTEGER,
@@ -66,8 +91,13 @@ def chess_transform():
                         date DATETIME
                        );''' 
                     )
+    
+    # Making our player dimension table
     cursor.execute('CREATE TABLE IF NOT EXISTS players(player_name TEXT(512), last_updated DATETIME)')
     names_frame.to_sql(con=connection, name='players', if_exists='replace', index=False)
+
+    # The workhorse loop: For each GM, and for each category, we grab the win/loss record from stage, 
+    # unzip it and clean it, and insert it into the corresponding table
     for name in names:
         for table in tables:
             query = 'SELECT player_name, game_category, ' + table + ', date FROM chess_stage WHERE game_category=\'record\' AND player_name=\'' + name + '\' AND transformed <> \'True\';'
@@ -102,6 +132,7 @@ def chess_transform():
     cursor.execute("UPDATE chess_stage SET transformed = 'True' WHERE transformed = 'False';")
     connection.commit()
 
+# The load task takes most recent record data from the game tables, joins it to the players, and updates the final snapshot table
 def chess_load():
     connection = sqlite3.connect('databases/chess_data.db')
     cursor = connection.cursor()
@@ -166,6 +197,7 @@ with DAG(
         python_callable = chess_transform,
         dag=chess_dag
     )
+
     task3 = PythonOperator(
         task_id = 'chess_load',
         python_callable = chess_load,
@@ -173,3 +205,4 @@ with DAG(
     )
 
 task1 >> task2 >> task3
+
