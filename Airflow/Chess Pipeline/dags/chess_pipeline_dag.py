@@ -158,15 +158,16 @@ def chess_load():
     )'''
     cursor.execute(table_creation)
     consolidation_query = '''SELECT DISTINCT players.player_name, players.last_updated,
-                IFNULL(blitz.chess_blitz_win, 0) AS chess_blitz_win, IFNULL(blitz.chess_blitz_loss, 0) AS chess_blitz_loss, IFNULL(blitz.chess_blitz_draw, 0) as chess_blitz_draw, IFNULL(blitz.chess_blitz_winrate, 0) AS chess_blitz_winrate,
-                IFNULL(daily.chess_daily_win, 0) AS chess_daily_win,  IFNULL(daily.chess_daily_loss, 0) AS chess_daily_loss,  IFNULL(daily.chess_daily_draw, 0) AS chess_daily_draw,  IFNULL(daily.chess_daily_winrate, 0) AS chess_daily_winrate,
-                IFNULL(bullet.chess_bullet_win, 0) AS chess_bullet_win, IFNULL(bullet.chess_bullet_loss, 0) AS chess_bullet_loss, IFNULL(bullet.chess_bullet_draw, 0) AS chess_bullet_draw, IFNULL(bullet.chess_bullet_winrate, 0) AS chess_bullet_winrate,
-                IFNULL(rapid.chess_rapid_win, 0) AS chess_rapid_win, IFNULL(rapid.chess_rapid_loss, 0) AS chess_rapid_loss, IFNULL(rapid.chess_rapid_draw, 0) AS chess_rapid_draw, IFNULL(rapid.chess_rapid_winrate, 0) AS chess_rapid_winrate
+                IFNULL(MAX(blitz.chess_blitz_win), 0) AS chess_blitz_win, IFNULL(MAX(blitz.chess_blitz_loss), 0) AS chess_blitz_loss, IFNULL(MAX(blitz.chess_blitz_draw), 0) as chess_blitz_draw, IFNULL(MAX(blitz.chess_blitz_winrate), 0) AS chess_blitz_winrate,
+                IFNULL(MAX(daily.chess_daily_win), 0) AS chess_daily_win,  IFNULL(MAX(daily.chess_daily_loss), 0) AS chess_daily_loss,  IFNULL(MAX(daily.chess_daily_draw), 0) AS chess_daily_draw,  IFNULL(MAX(daily.chess_daily_winrate), 0) AS chess_daily_winrate,
+                IFNULL(MAX(bullet.chess_bullet_win), 0) AS chess_bullet_win, IFNULL(MAX(bullet.chess_bullet_loss), 0) AS chess_bullet_loss, IFNULL(MAX(bullet.chess_bullet_draw), 0) AS chess_bullet_draw, IFNULL(MAX(bullet.chess_bullet_winrate), 0) AS chess_bullet_winrate,
+                IFNULL(MAX(rapid.chess_rapid_win), 0) AS chess_rapid_win, IFNULL(MAX(rapid.chess_rapid_loss), 0) AS chess_rapid_loss, IFNULL(MAX(rapid.chess_rapid_draw), 0) AS chess_rapid_draw, IFNULL(MAX(rapid.chess_rapid_winrate), 0) AS chess_rapid_winrate
             FROM players
             LEFT JOIN chess_blitz AS blitz ON players.player_name = blitz.player_name
             LEFT JOIN chess_daily AS daily ON players.player_name = daily.player_name
             LEFT JOIN chess_bullet AS bullet ON players.player_name = bullet.player_name
             LEFT JOIN chess_rapid AS rapid ON players.player_name = rapid.player_name
+            GROUP BY players.player_name
             ORDER BY players.player_name; '''
     
     consolidated_data = pd.read_sql(con=connection, sql=consolidation_query)
